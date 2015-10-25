@@ -46,11 +46,11 @@ public final class PublishJavadocMojo extends AbstractMojo {
 
     try {
       int artifactsPublished = javadocPublisher.publishJavadoc(repoUrl, groupId);
-      getLog().info("Published Javadoc of " + artifactsPublished + " artifacts for "
+      getLog().info("Published Javadoc for " + artifactsPublished + " artifacts of "
           + groupId + " to " + repoUrl);
     } catch (IOException e) {
       throw new MojoExecutionException(
-          "Failed to publish Javadoc for " + groupId + " to " + repoUrl, e);
+          "Failed to publish Javadoc of " + groupId + " to " + repoUrl, e);
     }
   }
 }

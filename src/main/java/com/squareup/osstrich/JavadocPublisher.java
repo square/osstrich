@@ -18,12 +18,16 @@ package com.squareup.osstrich;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import okio.BufferedSink;
 import okio.BufferedSource;
 import okio.Okio;
 import okio.Sink;
 import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.plugin.logging.SystemStreamLog;
 
 /** Downloads Javadoc from Maven and uploads it to GitHub pages. */
 public final class JavadocPublisher {
@@ -58,16 +62,18 @@ public final class JavadocPublisher {
         continue;
       }
 
-      File artifactDirectory = new File(
-          directory + "/" + artifact.latestVersion + "/" + artifact.artifactId);
+      File artifactDirectory = new File(directory
+          + "/" + majorVersion(artifact.latestVersion) + "/" + artifact.artifactId);
+      File versionText = new File(artifactDirectory, "version.txt");
 
-      if (artifactDirectory.exists()) {
-        log.info(String.format("Skipping %s, directory exists", artifactDirectory));
+      if (versionText.exists() && artifact.latestVersion.equals(readUtf8(versionText))) {
+        log.info(String.format("Skipping %s, artifact is up to date", artifactDirectory));
         continue;
       }
 
       log.info(String.format("Downloading %s to %s", artifact, artifactDirectory));
       downloadJavadoc(artifact, artifactDirectory);
+      writeUtf8(versionText, artifact.latestVersion);
       gitAdd(artifactDirectory);
 
       commitMessage.append("\n").append(artifact);
@@ -81,17 +87,41 @@ public final class JavadocPublisher {
     return artifactsPublished;
   }
 
-  public void initGitDirectory(String repoUrl) throws IOException {
-    log.info(String.format("Checking out %s to %s", repoUrl, directory));
-    cli.exec("rm", "-rf", directory.getAbsolutePath());
-    cli.exec("git", "clone",
-        "--single-branch",
-        "--branch", "gh-pages",
-        repoUrl,
-        directory.getAbsolutePath());
+  /** Returns a major version string, like {@code 2.x} for {@code 2.5.0}. */
+  static String majorVersion(String version) {
+    Pattern pattern = Pattern.compile("([^.]+)\\..*");
+    Matcher matcher = pattern.matcher(version);
+    return matcher.matches() ? matcher.group(1) + ".x" : version;
   }
 
-  public void downloadJavadoc(Artifact artifact, File destination) throws IOException {
+  private String readUtf8(File file) throws IOException {
+    try (BufferedSource source = Okio.buffer(Okio.source(file))) {
+      return source.readUtf8();
+    }
+  }
+
+  private void writeUtf8(File file, String string) throws IOException {
+    try (BufferedSink sink = Okio.buffer(Okio.sink(file))) {
+      sink.writeUtf8(string);
+    }
+  }
+
+  private void initGitDirectory(String repoUrl) throws IOException {
+    if (directory.exists()) {
+      log.info(String.format("Pulling latest from %s to %s", repoUrl, directory));
+      cli.withCwd(directory).exec("git", "pull");
+    } else {
+      log.info(String.format("Checking out %s to %s", repoUrl, directory));
+      cli.exec("rm", "-rf", directory.getAbsolutePath());
+      cli.exec("git", "clone",
+          "--single-branch",
+          "--branch", "gh-pages",
+          repoUrl,
+          directory.getAbsolutePath());
+    }
+  }
+
+  private void downloadJavadoc(Artifact artifact, File destination) throws IOException {
     try (BufferedSource source = mavenCentral.downloadJavadocJar(artifact);
          ZipInputStream zipIn = new ZipInputStream(source.inputStream())) {
       for (ZipEntry entry; (entry = zipIn.getNextEntry()) != null; ) {
@@ -115,5 +145,27 @@ public final class JavadocPublisher {
   private void gitCommitAndPush(String message) throws IOException {
     cli.withCwd(directory).exec("git", "commit", "-m", message);
     cli.withCwd(directory).exec("git", "push", "origin", "gh-pages");
+  }
+
+  public static void main(String[] args) throws IOException {
+    Log log = new SystemStreamLog();
+
+    if (args.length != 3) {
+      log.info(String.format("Usage: %s <directory> <group ID> <repo URL>\n",
+          JavadocPublisher.class.getName()));
+      System.exit(1);
+      return;
+    }
+
+    File directory = new File(args[0]);
+    String groupId = args[1];
+    String repoUrl = args[2];
+
+    JavadocPublisher javadocPublisher = new JavadocPublisher(
+        new MavenCentral(), new Cli(), log, directory);
+
+    int artifactsPublished = javadocPublisher.publishJavadoc(repoUrl, groupId);
+    log.info("Published Javadoc for " + artifactsPublished + " artifacts of "
+        + groupId + " to " + repoUrl);
   }
 }
