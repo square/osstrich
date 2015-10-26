@@ -47,7 +47,6 @@ public final class Cli {
     }
 
     processBuilder.redirectErrorStream(true);
-    processBuilder.redirectOutput();
     Process process = processBuilder.start();
 
     Buffer buffer = new Buffer();
@@ -60,6 +59,12 @@ public final class Cli {
           + buffer.readUtf8());
     } finally {
       process.destroy();
+    }
+    int exitValue = process.exitValue();
+    if (exitValue != 0) {
+      throw new IOException("Process returned " + exitValue + ":\n"
+          + Arrays.toString(command) + ":\n"
+          + buffer.readUtf8());
     }
   }
 }
