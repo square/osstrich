@@ -17,6 +17,7 @@ package com.squareup.osstrich;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -43,7 +44,19 @@ public final class JavadocPublisher {
     this.directory = directory;
   }
 
-  public int publishJavadoc(String repoUrl, String groupId) throws IOException {
+  public int publishLatest(String repoUrl, String groupId) throws IOException {
+    List<Artifact> artifacts = mavenCentral.latestArtifacts(groupId);
+    log.info(String.format("Maven central returned %s artifacts", artifacts.size()));
+    return publishArtifacts(repoUrl, artifacts);
+  }
+
+  public int publish(String repoUrl, String groupId, String artifactId, String version)
+      throws IOException {
+    Artifact artifact = Artifact.create(groupId, artifactId, version);
+    return publishArtifacts(repoUrl, Collections.singletonList(artifact));
+  }
+
+  private int publishArtifacts(String repoUrl, List<Artifact> artifacts) throws IOException {
     initGitDirectory(repoUrl);
 
     StringBuilder commitMessage = new StringBuilder();
@@ -53,31 +66,12 @@ public final class JavadocPublisher {
 
     int artifactsPublished = 0;
 
-    List<Artifact> artifacts = mavenCentral.latestArtifacts(groupId);
-    log.info(String.format("Maven central returned %s artifacts", artifacts.size()));
 
     for (Artifact artifact : artifacts) {
-      if (!artifact.hasJavadoc()) {
-        log.info(String.format("Skipping %s, artifact has no Javadoc", artifact));
-        continue;
+      if (publish(artifact)) {
+        commitMessage.append("\n").append(artifact);
+        artifactsPublished++;
       }
-
-      File artifactDirectory = new File(directory
-          + "/" + majorVersion(artifact.latestVersion) + "/" + artifact.artifactId);
-      File versionText = new File(artifactDirectory, "version.txt");
-
-      if (versionText.exists() && artifact.latestVersion.equals(readUtf8(versionText))) {
-        log.info(String.format("Skipping %s, artifact is up to date", artifactDirectory));
-        continue;
-      }
-
-      log.info(String.format("Downloading %s to %s", artifact, artifactDirectory));
-      downloadJavadoc(artifact, artifactDirectory);
-      writeUtf8(versionText, artifact.latestVersion);
-      gitAdd(artifactDirectory);
-
-      commitMessage.append("\n").append(artifact);
-      artifactsPublished++;
     }
 
     if (artifactsPublished > 0) {
@@ -85,6 +79,28 @@ public final class JavadocPublisher {
     }
 
     return artifactsPublished;
+  }
+
+  private boolean publish(Artifact artifact) throws IOException {
+    if (!artifact.hasJavadoc()) {
+      log.info(String.format("Skipping %s, artifact has no Javadoc", artifact));
+      return false;
+    }
+
+    File artifactDirectory = new File(directory
+        + "/" + majorVersion(artifact.latestVersion) + "/" + artifact.artifactId);
+    File versionText = new File(artifactDirectory, "version.txt");
+
+    if (versionText.exists() && artifact.latestVersion.equals(readUtf8(versionText))) {
+      log.info(String.format("Skipping %s, artifact is up to date", artifactDirectory));
+      return false;
+    }
+
+    log.info(String.format("Downloading %s to %s", artifact, artifactDirectory));
+    downloadJavadoc(artifact, artifactDirectory);
+    writeUtf8(versionText, artifact.latestVersion);
+    gitAdd(artifactDirectory);
+    return true;
   }
 
   /** Returns a major version string, like {@code 2.x} for {@code 2.5.0}. */
@@ -106,7 +122,7 @@ public final class JavadocPublisher {
     }
   }
 
-  private void initGitDirectory(String repoUrl) throws IOException {
+  public void initGitDirectory(String repoUrl) throws IOException {
     if (directory.exists()) {
       log.info(String.format("Pulling latest from %s to %s", repoUrl, directory));
       cli.withCwd(directory).exec("git", "pull");
@@ -150,21 +166,31 @@ public final class JavadocPublisher {
   public static void main(String[] args) throws IOException {
     Log log = new SystemStreamLog();
 
-    if (args.length != 3) {
-      log.info(String.format("Usage: %s <directory> <group ID> <repo URL>\n",
+    if (args.length != 3 && args.length != 5) {
+      log.info(String.format(""
+          + "Usage: %1$s <directory> <repo URL> <group ID>\n"
+          + "       %1$s <directory> <repo URL> <group ID> <artifact ID> <version>\n",
           JavadocPublisher.class.getName()));
       System.exit(1);
       return;
     }
 
     File directory = new File(args[0]);
-    String groupId = args[1];
-    String repoUrl = args[2];
+    String repoUrl = args[1];
+    String groupId = args[2];
 
     JavadocPublisher javadocPublisher = new JavadocPublisher(
         new MavenCentral(), new Cli(), log, directory);
 
-    int artifactsPublished = javadocPublisher.publishJavadoc(repoUrl, groupId);
+    int artifactsPublished;
+    if (args.length == 3) {
+      artifactsPublished = javadocPublisher.publishLatest(repoUrl, groupId);
+    } else {
+      String artifactId = args[3];
+      String version = args[4];
+      artifactsPublished = javadocPublisher.publish(repoUrl, groupId, artifactId, version);
+    }
+
     log.info("Published Javadoc for " + artifactsPublished + " artifacts of "
         + groupId + " to " + repoUrl);
   }

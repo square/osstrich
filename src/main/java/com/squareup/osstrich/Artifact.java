@@ -16,10 +16,13 @@
 package com.squareup.osstrich;
 
 import com.squareup.moshi.Json;
+import java.util.Collections;
 import java.util.Set;
 
 /** An artifact search result. */
 public final class Artifact {
+  private static final String JAVADOC_EXTENSION = "-javadoc.jar";
+
   @Json(name = "g") String groupId;
   @Json(name = "a") String artifactId;
   String latestVersion;
@@ -27,8 +30,17 @@ public final class Artifact {
   long timestamp;
   @Json(name = "ec") Set<String> extensions;
 
+  public static Artifact create(String groupId, String artifactId, String latestVersion) {
+    Artifact result = new Artifact();
+    result.groupId = groupId;
+    result.artifactId = artifactId;
+    result.latestVersion = latestVersion;
+    result.extensions = Collections.singleton(JAVADOC_EXTENSION);
+    return result;
+  }
+
   public boolean hasJavadoc() {
-    return extensions.contains("-javadoc.jar");
+    return extensions.contains(JAVADOC_EXTENSION);
   }
 
   @Override public String toString() {
