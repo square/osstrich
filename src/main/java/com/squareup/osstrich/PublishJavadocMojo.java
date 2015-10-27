@@ -45,7 +45,7 @@ public final class PublishJavadocMojo extends AbstractMojo {
         new JavadocPublisher(new MavenCentral(), new Cli(), getLog(), directory);
 
     try {
-      int artifactsPublished = javadocPublisher.publishJavadoc(repoUrl, groupId);
+      int artifactsPublished = javadocPublisher.publishLatest(repoUrl, groupId);
       getLog().info("Published Javadoc for " + artifactsPublished + " artifacts of "
           + groupId + " to " + repoUrl);
     } catch (IOException e) {
