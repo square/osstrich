@@ -20,7 +20,7 @@ import java.util.Collections;
 import java.util.Set;
 
 /** An artifact search result. */
-public final class Artifact {
+public final class Artifact implements Comparable<Artifact> {
   private static final String JAVADOC_EXTENSION = "-javadoc.jar";
 
   @Json(name = "g") String groupId;
@@ -45,5 +45,9 @@ public final class Artifact {
 
   @Override public String toString() {
     return String.format("%s:%s:%s", groupId, artifactId, latestVersion);
+  }
+
+  @Override public int compareTo(Artifact o) {
+    return artifactId.compareTo(o.artifactId);
   }
 }
