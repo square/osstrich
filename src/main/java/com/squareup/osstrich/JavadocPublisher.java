@@ -15,6 +15,9 @@
  */
 package com.squareup.osstrich;
 
+import com.google.common.collect.Multimap;
+import com.google.common.collect.TreeMultimap;
+import com.google.common.io.Files;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
@@ -29,6 +32,8 @@ import okio.Okio;
 import okio.Sink;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugin.logging.SystemStreamLog;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /** Downloads Javadoc from Maven and uploads it to GitHub pages. */
 public final class JavadocPublisher {
@@ -47,16 +52,17 @@ public final class JavadocPublisher {
   public int publishLatest(String repoUrl, String groupId) throws IOException {
     List<Artifact> artifacts = mavenCentral.latestArtifacts(groupId);
     log.info(String.format("Maven central returned %s artifacts", artifacts.size()));
-    return publishArtifacts(repoUrl, artifacts);
+    return publishArtifacts(repoUrl, groupId, artifacts);
   }
 
   public int publish(String repoUrl, String groupId, String artifactId, String version)
       throws IOException {
     Artifact artifact = Artifact.create(groupId, artifactId, version);
-    return publishArtifacts(repoUrl, Collections.singletonList(artifact));
+    return publishArtifacts(repoUrl, groupId, Collections.singletonList(artifact));
   }
 
-  private int publishArtifacts(String repoUrl, List<Artifact> artifacts) throws IOException {
+  private int publishArtifacts(String repoUrl, String groupId, List<Artifact> artifacts)
+      throws IOException {
     initGitDirectory(repoUrl);
 
     StringBuilder commitMessage = new StringBuilder();
@@ -64,21 +70,21 @@ public final class JavadocPublisher {
         + "\n"
         + "Artifacts published:");
 
-    int artifactsPublished = 0;
-
-
+    Multimap<String, Artifact> published = TreeMultimap.create();
     for (Artifact artifact : artifacts) {
       if (publish(artifact)) {
+        published.put(majorVersion(artifact.latestVersion), artifact);
         commitMessage.append("\n").append(artifact);
-        artifactsPublished++;
       }
     }
 
-    if (artifactsPublished > 0) {
+    writeIndexFiles(groupId, published);
+
+    if (!published.isEmpty()) {
       gitCommitAndPush(commitMessage.toString());
     }
 
-    return artifactsPublished;
+    return published.size();
   }
 
   private boolean publish(Artifact artifact) throws IOException {
@@ -101,6 +107,28 @@ public final class JavadocPublisher {
     writeUtf8(versionText, artifact.latestVersion);
     gitAdd(artifactDirectory);
     return true;
+  }
+
+  private void writeIndexFiles(String groupId, Multimap<String, Artifact> artifacts) throws IOException {
+    for (String majorVersion : artifacts.keySet()) {
+      StringBuilder html = new StringBuilder();
+      html.append("<!DOCTYPE html>\n<html><head><title>")
+          .append(groupId)
+          .append("</title></head>\n<body>\n<h1>")
+          .append(groupId)
+          .append("</h1>\n<ul>\n");
+      for (Artifact artifact : artifacts.get(majorVersion)) {
+        html.append("<li><a href=\"")
+            .append(artifact.artifactId)
+            .append("\">")
+            .append(artifact.artifactId)
+            .append("</li>\n");
+      }
+      html.append("</ul>\n</body>\n</html>");
+
+      File indexHtml = new File(directory + "/" + majorVersion + "/index.html");
+      Files.write(html, indexHtml, UTF_8);
+    }
   }
 
   /** Returns a major version string, like {@code 2.x} for {@code 2.5.0}. */
