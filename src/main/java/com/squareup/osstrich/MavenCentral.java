@@ -16,16 +16,17 @@
 package com.squareup.osstrich;
 
 import com.squareup.moshi.Json;
-import com.squareup.okhttp.HttpUrl;
-import com.squareup.okhttp.ResponseBody;
 import java.io.IOException;
 import java.util.List;
+import okhttp3.HttpUrl;
+import okhttp3.ResponseBody;
 import okio.BufferedSource;
-import retrofit.Call;
-import retrofit.MoshiConverterFactory;
-import retrofit.Retrofit;
-import retrofit.http.GET;
-import retrofit.http.Query;
+import retrofit2.Call;
+import retrofit2.Response;
+import retrofit2.Retrofit;
+import retrofit2.converter.moshi.MoshiConverterFactory;
+import retrofit2.http.GET;
+import retrofit2.http.Query;
 
 /**
  * Programmatic access to search.maven.org.
@@ -45,16 +46,16 @@ public final class MavenCentral {
   /** Returns the latest version of up to 20 projects. */
   public List<Artifact> latestArtifacts(String groupId) throws IOException {
     Call<Select> call = mavenDotOrg.latestArtifacts("g:\"" + groupId + "\"");
-    retrofit.Response<Select> execute = call.execute();
+    Response<Select> execute = call.execute();
     return execute.body().response.artifacts;
   }
 
   public BufferedSource downloadJavadocJar(Artifact artifact) throws IOException {
     Call<ResponseBody> call = mavenDotOrg.javadoc(
         artifact.groupId, artifact.artifactId, artifact.latestVersion);
-    retrofit.Response<ResponseBody> response = call.execute();
+    Response<ResponseBody> response = call.execute();
 
-    if (!response.isSuccess()) {
+    if (!response.isSuccessful()) {
       String errorBody = response.errorBody().string();
       response.errorBody().close();
       throw new IOException("Failed to download " + artifact
