@@ -128,6 +128,7 @@ public final class JavadocPublisher {
 
       File indexHtml = new File(directory + "/" + majorVersion + "/index.html");
       Files.write(html, indexHtml, UTF_8);
+      gitAdd(indexHtml);
     }
   }
 
