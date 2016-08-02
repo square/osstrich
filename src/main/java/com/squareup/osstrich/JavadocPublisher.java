@@ -72,7 +72,7 @@ public final class JavadocPublisher {
 
     Multimap<String, Artifact> published = TreeMultimap.create();
     for (Artifact artifact : artifacts) {
-      if (publish(artifact)) {
+      if (fetchJavadoc(artifact)) {
         published.put(majorVersion(artifact.latestVersion), artifact);
         commitMessage.append("\n").append(artifact);
       }
@@ -87,7 +87,7 @@ public final class JavadocPublisher {
     return published.size();
   }
 
-  private boolean publish(Artifact artifact) throws IOException {
+  private boolean fetchJavadoc(Artifact artifact) throws IOException {
     if (!artifact.hasJavadoc()) {
       log.info(String.format("Skipping %s, artifact has no Javadoc", artifact));
       return false;
