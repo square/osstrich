@@ -16,10 +16,10 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <java.version>1.8</java.version>
-    <moshi.version>1.0.0</moshi.version>
-    <retrofit.version>2.0.0</retrofit.version>
-    <okhttp.version>3.2.0</okhttp.version>
-    <okio.version>1.6.0</okio.version>
+    <moshi.version>1.5.0</moshi.version>
+    <retrofit.version>2.3.0</retrofit.version>
+    <okhttp.version>3.9.1</okhttp.version>
+    <okio.version>1.13.0</okio.version>
     <junit.version>4.12</junit.version>
     <assertj.version>1.7.0</assertj.version>
   </properties>
