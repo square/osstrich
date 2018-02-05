@@ -207,8 +207,13 @@ public final class JavadocPublisher {
   }
 
   private void gitCommitAndPush(String message) throws IOException {
-    cli.withCwd(directory).exec("git", "commit", "-m", message);
-    cli.withCwd(directory).exec("git", "push", "origin", "gh-pages");
+    if (dryRun) {
+      log.info(String.format("DRY-RUN: git commit -m %s", message));
+      log.info("DRY-RUN: git push origin gh-pages");
+    } else {
+      cli.withCwd(directory).exec("git", "commit", "-m", message);
+      cli.withCwd(directory).exec("git", "push", "origin", "gh-pages");
+    }
   }
 
   public static void main(String[] args) throws IOException {
