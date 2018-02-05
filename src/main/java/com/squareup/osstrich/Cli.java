@@ -60,6 +60,11 @@ public final class Cli {
     } finally {
       process.destroy();
     }
+    try {
+      process.waitFor(30, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      throw new IOException(e);
+    }
     int exitValue = process.exitValue();
     if (exitValue != 0) {
       throw new IOException("Process returned " + exitValue + ":\n"
