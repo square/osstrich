@@ -112,8 +112,13 @@ public final class JavadocPublisher {
     File versionText = new File(artifactDirectory, "version.txt");
 
     if (versionText.exists() && artifact.latestVersion.equals(readUtf8(versionText))) {
-      log.info(String.format("Skipping %s, artifact is up to date", artifactDirectory));
-      return false;
+      if (force) {
+        log.info(String.format("%s artifact is up to date, but downloading anyway due to --force",
+            artifactDirectory));
+      } else {
+        log.info(String.format("Skipping %s, artifact is up to date", artifactDirectory));
+        return false;
+      }
     }
 
     log.info(String.format("Downloading %s to %s", artifact, artifactDirectory));
