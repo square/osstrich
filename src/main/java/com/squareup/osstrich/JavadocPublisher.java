@@ -20,6 +20,7 @@ import com.google.common.collect.TreeMultimap;
 import com.google.common.io.Files;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -41,12 +42,25 @@ public final class JavadocPublisher {
   final Cli cli;
   final Log log;
   final File directory;
+  final boolean dryRun;
+  final boolean force;
 
   public JavadocPublisher(MavenCentral mavenCentral, Cli cli, Log log, File directory) {
+    this(mavenCentral, cli, log, directory, false, false);
+  }
+
+  public JavadocPublisher(MavenCentral mavenCentral,
+      Cli cli,
+      Log log,
+      File directory,
+      boolean dryRun,
+      boolean force) {
     this.mavenCentral = mavenCentral;
     this.cli = cli;
     this.log = log;
     this.directory = directory;
+    this.dryRun = dryRun;
+    this.force = force;
   }
 
   public int publishLatest(String repoUrl, String groupId) throws IOException {
@@ -98,8 +112,13 @@ public final class JavadocPublisher {
     File versionText = new File(artifactDirectory, "version.txt");
 
     if (versionText.exists() && artifact.latestVersion.equals(readUtf8(versionText))) {
-      log.info(String.format("Skipping %s, artifact is up to date", artifactDirectory));
-      return false;
+      if (force) {
+        log.info(String.format("%s artifact is up to date, but downloading anyway due to --force",
+            artifactDirectory));
+      } else {
+        log.info(String.format("Skipping %s, artifact is up to date", artifactDirectory));
+        return false;
+      }
     }
 
     log.info(String.format("Downloading %s to %s", artifact, artifactDirectory));
@@ -188,14 +207,33 @@ public final class JavadocPublisher {
   }
 
   private void gitCommitAndPush(String message) throws IOException {
-    cli.withCwd(directory).exec("git", "commit", "-m", message);
-    cli.withCwd(directory).exec("git", "push", "origin", "gh-pages");
+    if (dryRun) {
+      log.info(String.format("DRY-RUN: git commit -m %s", message));
+      log.info("DRY-RUN: git push origin gh-pages");
+    } else {
+      cli.withCwd(directory).exec("git", "commit", "-m", message);
+      cli.withCwd(directory).exec("git", "push", "origin", "gh-pages");
+    }
   }
 
   public static void main(String[] args) throws IOException {
     Log log = new SystemStreamLog();
 
-    if (args.length != 3 && args.length != 5) {
+    boolean force = false;
+    boolean dryRun = false;
+    List<String> strippedArgs = new ArrayList<>(args.length);
+    for (String arg : args) {
+      if ("--dry-run".equals(arg)) {
+        dryRun = true;
+      } else if ("force".equals(arg)) {
+        force = true;
+      } else {
+        strippedArgs.add(arg);
+      }
+    }
+    String[] finalArgs = strippedArgs.toArray(new String[strippedArgs.size()]);
+
+    if (finalArgs.length != 3 && finalArgs.length != 5) {
       log.info(String.format(""
           + "Usage: %1$s <directory> <repo URL> <group ID>\n"
           + "       %1$s <directory> <repo URL> <group ID> <artifact ID> <version>\n",
@@ -204,19 +242,19 @@ public final class JavadocPublisher {
       return;
     }
 
-    File directory = new File(args[0]);
-    String repoUrl = args[1];
-    String groupId = args[2];
+    File directory = new File(finalArgs[0]);
+    String repoUrl = finalArgs[1];
+    String groupId = finalArgs[2];
 
     JavadocPublisher javadocPublisher = new JavadocPublisher(
-        new MavenCentral(), new Cli(), log, directory);
+        new MavenCentral(), new Cli(), log, directory, dryRun, force);
 
     int artifactsPublished;
-    if (args.length == 3) {
+    if (finalArgs.length == 3) {
       artifactsPublished = javadocPublisher.publishLatest(repoUrl, groupId);
     } else {
-      String artifactId = args[3];
-      String version = args[4];
+      String artifactId = finalArgs[3];
+      String version = finalArgs[4];
       artifactsPublished = javadocPublisher.publish(repoUrl, groupId, artifactId, version);
     }
 
