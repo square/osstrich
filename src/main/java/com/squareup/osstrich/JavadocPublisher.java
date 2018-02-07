@@ -161,12 +161,11 @@ public final class JavadocPublisher {
     if (!directory.isDirectory()) {
       throw new IllegalArgumentException(directory + " is not a directory!");
     }
-    File[] subfiles = Objects.requireNonNull(directory.listFiles());
-    // Perform an exhaustive check first for index.html files
-    if (Arrays.stream(subfiles).anyMatch(f -> "index.html".equals(f.getName()))) {
+    if (new File(directory, "index.html").exists()) {
       return directory.getName();
     } else {
       // Look for subdirectories of the same name as the artifact and go a level deeper
+      File[] subfiles = Objects.requireNonNull(directory.listFiles());
       for (File subfile : subfiles) {
         if (subfile.isDirectory() && artifactId.equals(subfile.getName())) {
           return directory.getName() + File.separator + findRelativePath(subfile, artifactId);
