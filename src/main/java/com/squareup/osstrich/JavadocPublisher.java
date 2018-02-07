@@ -165,13 +165,12 @@ public final class JavadocPublisher {
       return directory.getName();
     } else {
       // Look for subdirectories of the same name as the artifact and go a level deeper
-      File[] subfiles = Objects.requireNonNull(directory.listFiles());
-      for (File subfile : subfiles) {
-        if (subfile.isDirectory() && artifactId.equals(subfile.getName())) {
-          return directory.getName() + File.separator + findRelativePath(subfile, artifactId);
-        }
+      File possibleSubDir = new File(directory, artifactId);
+      if (possibleSubDir.exists()) {
+        return directory.getName() + File.separator + findRelativePath(possibleSubDir, artifactId);
       }
-      throw new RuntimeException("Could not find a valid indexed path for " + artifactId + ". Files are " + Arrays.toString(subfiles));
+      throw new RuntimeException("Could not find a valid indexed path for " + artifactId + ". Files are "
+              + Arrays.toString(Objects.requireNonNull(directory.listFiles())));
     }
   }
 
