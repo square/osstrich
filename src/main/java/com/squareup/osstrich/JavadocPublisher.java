@@ -166,7 +166,7 @@ public final class JavadocPublisher {
     } else {
       // Look for subdirectories of the same name as the artifact and go a level deeper
       File possibleSubDir = new File(directory, artifactId);
-      if (possibleSubDir.exists()) {
+      if (possibleSubDir.isDirectory()) {
         return directory.getName() + File.separator + findRelativePath(possibleSubDir, artifactId);
       }
       throw new RuntimeException("Could not find a valid indexed path for " + artifactId + ". Files are "
