@@ -18,21 +18,26 @@ package com.squareup.osstrich;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.TreeMultimap;
 import com.google.common.io.Files;
+
+import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.plugin.logging.SystemStreamLog;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+
 import okio.BufferedSink;
 import okio.BufferedSource;
 import okio.Okio;
 import okio.Sink;
-import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.plugin.logging.SystemStreamLog;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -136,9 +141,10 @@ public final class JavadocPublisher {
           .append("</title></head>\n<body>\n<h1>")
           .append(groupId)
           .append("</h1>\n<ul>\n");
+      File workingDir = new File(directory, majorVersion);
       for (Artifact artifact : artifacts.get(majorVersion)) {
         html.append("<li><a href=\"")
-            .append(artifact.artifactId)
+            .append(findRelativePath(new File(workingDir, artifact.artifactId), artifact.artifactId))
             .append("\">")
             .append(artifact.artifactId)
             .append("</li>\n");
@@ -148,6 +154,23 @@ public final class JavadocPublisher {
       File indexHtml = new File(directory + "/" + majorVersion + "/index.html");
       Files.write(html, indexHtml, UTF_8);
       gitAdd(indexHtml);
+    }
+  }
+
+  private String findRelativePath(File directory, String artifactId) {
+    if (!directory.isDirectory()) {
+      throw new IllegalArgumentException(directory + " is not a directory!");
+    }
+    if (new File(directory, "index.html").exists()) {
+      return directory.getName();
+    } else {
+      // Look for subdirectories of the same name as the artifact and go a level deeper
+      File possibleSubDir = new File(directory, artifactId);
+      if (possibleSubDir.isDirectory()) {
+        return directory.getName() + File.separator + findRelativePath(possibleSubDir, artifactId);
+      }
+      throw new RuntimeException("Could not find a valid indexed path for " + artifactId + ". Files are "
+              + Arrays.toString(Objects.requireNonNull(directory.listFiles())));
     }
   }
 
