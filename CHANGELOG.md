@@ -1,6 +1,15 @@
 Change Log
 ==========
 
+Version 1.3.0 *(2018-06-28)*
+----------------------------
+
+ * New: Find index.html wherever it is in the Javadoc. This improves behavior for Dokka.
+ * New: CLI arguments `--force` to publish already-published files.
+ * New: CLI arguments `--dry-run` to not push docs up to GitHub.
+ * Fix: Wait for process to finish before requesting its exit value.
+
+
 Version 1.2.0 *(2016-03-01)*
 ----------------------------
 
