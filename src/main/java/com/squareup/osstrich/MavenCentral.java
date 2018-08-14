@@ -37,7 +37,7 @@ public final class MavenCentral {
 
   public MavenCentral() {
     Retrofit retrofit = new Retrofit.Builder()
-        .baseUrl(HttpUrl.parse("http://search.maven.org/"))
+        .baseUrl(HttpUrl.parse("https://search.maven.org/"))
         .addConverterFactory(MoshiConverterFactory.create())
         .build();
     this.mavenDotOrg = retrofit.create(MavenDotOrg.class);
