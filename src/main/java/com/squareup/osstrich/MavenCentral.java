@@ -67,10 +67,10 @@ public final class MavenCentral {
 
   interface MavenDotOrg {
     /** Returns up to 20 projects. */
-    @GET("/solrsearch/select?rows=20&wt=json")
+    @GET("classic/solrsearch/select?rows=20&wt=json")
     Call<Select> latestArtifacts(@Query("q") String query);
 
-    @GET("/remote_content?c=javadoc")
+    @GET("classic/remote_content?c=javadoc")
     Call<ResponseBody> javadoc(
         @Query("g") String groupId, @Query("a") String artifactId, @Query("v") String version);
   }
