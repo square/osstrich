@@ -18,10 +18,6 @@ package com.squareup.osstrich;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.TreeMultimap;
 import com.google.common.io.Files;
-
-import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.plugin.logging.SystemStreamLog;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -33,11 +29,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-
 import okio.BufferedSink;
 import okio.BufferedSource;
 import okio.Okio;
 import okio.Sink;
+import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.plugin.logging.SystemStreamLog;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -161,17 +158,26 @@ public final class JavadocPublisher {
     if (!directory.isDirectory()) {
       throw new IllegalArgumentException(directory + " is not a directory!");
     }
+
+    // Look for Javadoc in the current directory.
     if (new File(directory, "index.html").exists()) {
       return directory.getName();
-    } else {
-      // Look for subdirectories of the same name as the artifact and go a level deeper
-      File possibleSubDir = new File(directory, artifactId);
-      if (possibleSubDir.isDirectory()) {
-        return directory.getName() + File.separator + findRelativePath(possibleSubDir, artifactId);
-      }
-      throw new RuntimeException("Could not find a valid indexed path for " + artifactId + ". Files are "
-              + Arrays.toString(Objects.requireNonNull(directory.listFiles())));
     }
+
+    // Look for subdirectories of the same name as the artifact and go a level deeper
+    File artifactDir = new File(directory, artifactId);
+    if (artifactDir.isDirectory()) {
+      return directory.getName() + File.separator + findRelativePath(artifactDir, artifactId);
+    }
+
+    // For Kotlin multiplatform look for a subdirectory named 'jvm' and go a level deeper.
+    File jvmDir = new File(directory, "jvm");
+    if (jvmDir.isDirectory()) {
+      return directory.getName() + File.separator + findRelativePath(jvmDir, artifactId);
+    }
+
+    throw new RuntimeException("Could not find a valid indexed path for " + artifactId
+        + ". Files are " + Arrays.toString(Objects.requireNonNull(directory.listFiles())));
   }
 
   /** Returns a major version string, like {@code 2.x} for {@code 2.5.0}. */
