@@ -18,28 +18,26 @@ package com.squareup.osstrich;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.TreeMultimap;
 import com.google.common.io.Files;
-
-import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.plugin.logging.SystemStreamLog;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-
+import javax.annotation.Nullable;
 import okio.BufferedSink;
 import okio.BufferedSource;
 import okio.Okio;
 import okio.Sink;
+import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.plugin.logging.SystemStreamLog;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 /** Downloads Javadoc from Maven and uploads it to GitHub pages. */
 public final class JavadocPublisher {
@@ -143,8 +141,11 @@ public final class JavadocPublisher {
           .append("</h1>\n<ul>\n");
       File workingDir = new File(directory, majorVersion);
       for (Artifact artifact : artifacts.get(majorVersion)) {
+        String relativePath = findRelativePath(
+            new File(workingDir, artifact.artifactId), artifact.artifactId);
+        if (relativePath == null) continue;
         html.append("<li><a href=\"")
-            .append(findRelativePath(new File(workingDir, artifact.artifactId), artifact.artifactId))
+            .append(relativePath)
             .append("\">")
             .append(artifact.artifactId)
             .append("</li>\n");
@@ -157,21 +158,37 @@ public final class JavadocPublisher {
     }
   }
 
-  private String findRelativePath(File directory, String artifactId) {
+  private @Nullable String findRelativePath(File directory, String artifactId) {
     if (!directory.isDirectory()) {
       throw new IllegalArgumentException(directory + " is not a directory!");
     }
+
+    // Look for Javadoc in the current directory.
     if (new File(directory, "index.html").exists()) {
       return directory.getName();
-    } else {
-      // Look for subdirectories of the same name as the artifact and go a level deeper
-      File possibleSubDir = new File(directory, artifactId);
-      if (possibleSubDir.isDirectory()) {
-        return directory.getName() + File.separator + findRelativePath(possibleSubDir, artifactId);
-      }
-      throw new RuntimeException("Could not find a valid indexed path for " + artifactId + ". Files are "
-              + Arrays.toString(Objects.requireNonNull(directory.listFiles())));
     }
+
+    // Look for subdirectories of the same name as the artifact and go a level deeper
+    File artifactDir = new File(directory, artifactId);
+    if (artifactDir.isDirectory()) {
+      String relativePath = findRelativePath(artifactDir, artifactId);
+      return relativePath != null
+          ? (directory.getName() + File.separator + relativePath)
+          : null;
+    }
+
+    // For Kotlin multiplatform look for a subdirectory named 'jvm' and go a level deeper.
+    File jvmDir = new File(directory, "jvm");
+    if (jvmDir.isDirectory()) {
+      String relativePath = findRelativePath(jvmDir, artifactId);
+      return relativePath != null
+          ? (directory.getName() + File.separator + relativePath)
+          : null;
+    }
+
+    log.error("Could not find a valid indexed path for " + artifactId
+        + ". Files are " + Arrays.toString(requireNonNull(directory.listFiles())));
+    return null;
   }
 
   /** Returns a major version string, like {@code 2.x} for {@code 2.5.0}. */
