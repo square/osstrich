@@ -1,6 +1,14 @@
 Change Log
 ==========
 
+Version 1.4.0 *(2019-05-05)*
+----------------------------
+
+ * Fix: Prefer the `jvm` directory for multiplatform builds.
+ * Fix: Ignore directories that don't have Javadoc.
+ * Fix: Use classic endpoint for Maven Central.
+
+
 Version 1.3.0 *(2018-06-28)*
 ----------------------------
 
